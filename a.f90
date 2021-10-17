@@ -86,7 +86,7 @@ program prog
     implicit none
 
     real, allocatable :: a(:), g(:), v(:)
-    real :: f, calc_poly, mse, b, dot, c, d, x, extremum_of_quadratic
+    real :: f, calc_poly, mse, b, dot, c, d, x, extremum_of_quadratic, eps
 
     integer :: N, n0, m, n_a, i  ! n1 = n0 + m, deg(P) in [n0 : n1)
 
@@ -111,7 +111,7 @@ program prog
     !write (*, '(A)', advance='no') "Enter m (n1 = n0 + m): "
     !read (*,*) m
 
-    n_a = n0+1
+    n_a = n0
     allocate(a(n_a))
     allocate(g(n_a))
     allocate(v(n_a))
@@ -130,26 +130,33 @@ program prog
 
 
     v = 0
-    do i = 1, 100
+    eps = 1e-3
+    do while (1==1)
         b = dot(g, g, n_a)
         call mse_grad(a, n_a, c, d, N, g)
         b = dot(g, g, n_a) / b
         v = -g + v * b
-        if (dot(v, v, n_a) < 1e-7) then
+
+        x = extremum_of_quadratic(mse(a-v, n_a, c, d, N), mse(a, n_a, c, d, N), mse(a+v, n_a, c, d, N))
+        a = a + x * v
+
+        write (*, *) "polynomial coeffs", a
+        write (*, *) "|grad|", sqrt(dot(g, g, n_a))
+        write (*, *) "mse", mse(a, n_a, c, d, N)
+        write (*, *)
+
+        if (dot(v, v, n_a) < eps*eps) then
             exit
         end if
-        write (*, *) "(v,v)", dot(v, v, n_a)
-        x = extremum_of_quadratic(mse(a-v, n_a, c, d, N), mse(a, n_a, c, d, N), mse(a+v, n_a, c, d, N))
-        write (*, *) x
-        a = a + x * v
-        write (*, *) a
     end do
 
-    write (*, *) calc_poly(a, n_a, 3.14)
-    a(1) = 1
-    a(2) = 2
-    a(3) = 3
-    write (*, *) calc_poly(a, 3, 2.0)
+    write (*, *) "================="
+    write (*, *) "x_i            ", "P(x_i)          ", " |f(x_i) - P(x_i)|"
+    do i = 0, N
+        x = i * (d - c) / N + c
+        b = calc_poly(a, n_a, x)
+        write (*, *) x, b, abs(b - f(x))
+    end do
 
 
     deallocate(a)
