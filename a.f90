@@ -82,6 +82,39 @@ function dot(a, b, n)
 end function dot
 
 
+subroutine approx(a, n_a, c, d, n_x, eps)
+    implicit none
+
+    integer, intent(in) :: n_a, n_x
+    real, intent(in) :: c, d, eps
+    real :: x, b, a(n_a), v(n_a), g(n_a), dot, mse, extremum_of_quadratic
+
+    call mse_grad(a, n_a, c, d, n_x, g)
+    v = 0
+
+    write (*, *) "polynomial coeffs", a
+    do while (1==1)
+        b = dot(g, g, n_a)
+        call mse_grad(a, n_a, c, d, n_x, g)
+        b = dot(g, g, n_a) / b
+        v = -g + v * b
+
+        x = extremum_of_quadratic(mse(a-v, n_a, c, d, n_x), mse(a, n_a, c, d, n_x), mse(a+v, n_a, c, d, n_x))
+        a = a + x * v
+
+        write (*, *) "polynomial coeffs", a
+        write (*, *) "|grad|", sqrt(dot(g, g, n_a))
+        write (*, *) "mse", mse(a, n_a, c, d, n_x)
+        write (*, *)
+
+        if (dot(v, v, n_a) < eps*eps) then
+            exit
+        end if
+    end do
+
+end subroutine approx
+
+
 program prog
     implicit none
 
@@ -111,53 +144,35 @@ program prog
     !write (*, '(A)', advance='no') "Enter m (n1 = n0 + m): "
     !read (*,*) m
 
-    n_a = n0
-    allocate(a(n_a))
-    allocate(g(n_a))
-    allocate(v(n_a))
+    allocate(a(n0 + m))
+    allocate(g(n0 + m))
+    allocate(v(n0 + m))
 
     a = 0
-    call mse_grad(a, n_a, c, d, N, g) ! DO NOT REMOVE THIS LINE ===============
 
-    write (*, *)
-    write (*, '(a, f5.2, a, f5.2, a)') "[", c, ":", d, "]"
-    write (*, '(a, i2)') "N = ", N
-    write (*, '(a, i2, a, i2, a)') "n in [", n0, ":", n0+m-1, "]"
-    print *, "res", calc_poly(a, n_a, 1.)
-    write (*, *) mse(a, n_a, c, d, N)
-    write (*, *) g
-    write (*, *)
+    do n_a = n0+1, n0+m
+        call mse_grad(a, n_a, c, d, N, g) ! DO NOT REMOVE THIS LINE ===============
 
-
-    v = 0
-    eps = 1e-3
-    do while (1==1)
-        b = dot(g, g, n_a)
-        call mse_grad(a, n_a, c, d, N, g)
-        b = dot(g, g, n_a) / b
-        v = -g + v * b
-
-        x = extremum_of_quadratic(mse(a-v, n_a, c, d, N), mse(a, n_a, c, d, N), mse(a+v, n_a, c, d, N))
-        a = a + x * v
-
-        write (*, *) "polynomial coeffs", a
-        write (*, *) "|grad|", sqrt(dot(g, g, n_a))
-        write (*, *) "mse", mse(a, n_a, c, d, N)
+        write (*, *)
+        write (*, '(a, f5.2, a, f5.2, a)') "[", c, ":", d, "]"
+        write (*, '(a, i2)') "N = ", N
+        write (*, '(a, i2, a, i2, a)') "deg(P) = ", n_a
+        write (*, *) mse(a, n_a, c, d, N)
         write (*, *)
 
-        if (dot(v, v, n_a) < eps*eps) then
-            exit
-        end if
-    end do
 
-    write (*, *) "================="
-    write (*, *) "x_i            ", "P(x_i)          ", " |f(x_i) - P(x_i)|"
-    do i = 0, N
-        x = i * (d - c) / N + c
-        b = calc_poly(a, n_a, x)
-        write (*, *) x, b, abs(b - f(x))
-    end do
+        v = 0
+        eps = 1e-3
+        call approx(a, n_a, c, d, N, eps)
 
+        write (*, *) "================="
+        write (*, *) "x_i            ", "P(x_i)          ", " |f(x_i) - P(x_i)|"
+        do i = 0, N
+            x = i * (d - c) / N + c
+            b = calc_poly(a, n_a, x)
+            write (*, *) x, b, abs(b - f(x))
+        end do
+    end do
 
     deallocate(a)
     deallocate(g)
