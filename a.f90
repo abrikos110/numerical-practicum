@@ -106,6 +106,7 @@ subroutine approx(a, n_a, c, d, n_x, eps)
         write (*, *) "|grad|", sqrt(dot(g, g, n_a))
         write (*, *) "mse", mse(a, n_a, c, d, n_x)
         write (*, *)
+        !write (*, *) 9999, mse(a, n_a, c, d, n_x), sqrt(dot(g, g, n_a)), maxval(abs(x*v)), maxval(abs(x*v)) / maxval(abs(a))
 
         if (dot(v, v, n_a) < eps*eps) then
             exit
@@ -129,20 +130,20 @@ program prog
     n0 = 3
     m = 2
 
-    !write (*, '(A)', advance='no') "Enter c: "
-    !read (*,*) c
+    write (*, '(A)', advance='no') "Enter c: "
+    read (*,*) c
 
-    !write (*, '(A)', advance='no') "Enter d: "
-    !read (*,*) d
+    write (*, '(A)', advance='no') "Enter d: "
+    read (*,*) d
 
-    !write (*, '(A)', advance='no') "Enter N: "
-    !read (*,*) N
+    write (*, '(A)', advance='no') "Enter N: "
+    read (*,*) N
 
-    !write (*, '(A)', advance='no') "Enter n0: "
-    !read (*,*) n0
+    write (*, '(A)', advance='no') "Enter n0: "
+    read (*,*) n0
 
-    !write (*, '(A)', advance='no') "Enter m (n1 = n0 + m): "
-    !read (*,*) m
+    write (*, '(A)', advance='no') "Enter m (n1 = n0 + m): "
+    read (*,*) m
 
     allocate(a(n0 + m))
     allocate(g(n0 + m))
@@ -166,11 +167,11 @@ program prog
         call approx(a, n_a, c, d, N, eps)
 
         write (*, *) "================="
-        write (*, *) "x_i            ", "P(x_i)          ", " |f(x_i) - P(x_i)|"
+        write (*, *) "x_i            ", "f(x_i)           ", "P(x_i)          ", " |f(x_i) - P(x_i)|"
         do i = 0, N
             x = i * (d - c) / N + c
             b = calc_poly(a, n_a, x)
-            write (*, *) x, b, abs(b - f(x))
+            write (*, *) x, f(x), b, abs(b - f(x))
         end do
     end do
 
