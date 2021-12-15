@@ -4,6 +4,7 @@ function f(x)
     real, intent(in) :: x
     real :: f
 
+    f = (x - 0.5) * (x - 0.7) * (x - 0.9)
     f = (3 * x**2 - 1) * exp(-x**2)
 end function f
 
@@ -102,16 +103,17 @@ subroutine approx(a, n_a, c, d, n_x, eps)
         x = extremum_of_quadratic(mse(a-v, n_a, c, d, n_x), mse(a, n_a, c, d, n_x), mse(a+v, n_a, c, d, n_x))
         a = a + x * v
 
-        write (*, *) "polynomial coeffs", a
-        write (*, *) "|grad|", sqrt(dot(g, g, n_a))
-        write (*, *) "mse", mse(a, n_a, c, d, n_x)
-        write (*, *)
-        !write (*, *) 9999, mse(a, n_a, c, d, n_x), sqrt(dot(g, g, n_a)), maxval(abs(x*v)), maxval(abs(x*v)) / maxval(abs(a))
+        !write (*, *) "polynomial coeffs", a
+        !write (*, *) "|grad|", sqrt(dot(g, g, n_a))
+        !write (*, *) "mse", mse(a, n_a, c, d, n_x)
+        !write (*, *)
+        write (*, *) mse(a, n_a, c, d, n_x), sqrt(dot(g, g, n_a)), maxval(abs(x*v)), maxval(abs(x*v)) / maxval(abs(a))
 
         if (dot(v, v, n_a) < eps*eps) then
             exit
         end if
     end do
+    write (*, *) "polynomial coeffs", a
 
 end subroutine approx
 
@@ -174,6 +176,8 @@ program prog
             write (*, *) x, f(x), b, abs(b - f(x))
         end do
     end do
+
+    write (*, *) 0.1
 
     deallocate(a)
     deallocate(g)
