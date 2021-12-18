@@ -92,11 +92,11 @@ void create_mat_vec(size_t n, tridiagonal_matrix &mat, std::vector<double> &vec)
     mat(0, 0) = -(var::k(0) + var::k(h)) / 2 - h * (var::beta_1 + h * var::q(0) / 2);
     mat(0, 1) = (var::k(0) + var::k(h)) / 2;
     mat(n-1, n-2) = (var::k(1) + var::k(1-h)) / 2;
-    mat(n-1, n-1) = -mat(n-1, n-2) - h * (var::beta_2 + h * var::q(1) / 2);
+    mat(n-1, n-1) = -(var::k(1) + var::k(1-h)) / 2 - h * (var::beta_2 + h * var::q(1) / 2);
     vec[0] = -h * (var::mu_1 - h * var::f(0) / 2);
     vec[n-1] = -h * (var::mu_2 - h * var::f(1) / 2);
-    ???
-    /*s = !echo 99 | ./main
+    /*
+    s = !echo 99 | ./main
     s = s[:-1]
     m = numpy.array(eval('['+''.join(s[:-2])+']'))
     v = numpy.array(eval('[' + s[-1] + ']'))
@@ -179,5 +179,5 @@ int main() {
     std::cout.precision(16);
     size_t n;
     std::cin >> n;
-    return test_solve(n, n < 100);
+    return test_solve(n, 1);
 }
