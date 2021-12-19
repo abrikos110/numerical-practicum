@@ -87,27 +87,36 @@ void create_mat_vec(size_t n, tridiagonal_matrix &mat, std::vector<double> &vec)
 
     for (size_t i = 1; i < n-1; ++i) {
         double kk = var::k(i*h);
-        if (1) {
-            double kd = (var::k(i*h + h) - var::k(i*h - h)) / (2*h);
-            mat(i, i-1) = -kd / (2*h) + kk / (h*h);
-            mat(i, i) = -2 * kk / (h*h) - var::q(i*h);
-            mat(i, i+1) = kd / (2*h) + kk / (h*h);
-            vec[i] = -var::f(i*h);
-            continue;
-        }
+        double kd = (var::k(i*h + h) - var::k(i*h - h)) / (2*h);
+        mat(i, i-1) = -kd * h / 2 + kk;
+        mat(i, i) = -2 * kk - h*h * var::q(i*h);
+        mat(i, i+1) = kd * h / 2 + kk;
+        vec[i] = -var::f(i*h) * h*h;
+        /*
         mat(i, i-1) = kk;
         mat(i, i) = -kk - var::k(i*h + h) - var::q(i*h) * h*h;
         mat(i, i+1) = var::k(i*h + h);
-        vec[i] = -var::f(i*h)*h*h;
+        vec[i] = -var::f(i*h)*h*h;*/
     }
 
-    mat(0, 0) = -var::k(0) / h - var::beta_1;
+    // first order
+    /*mat(0, 0) = -var::k(0) / h - var::beta_1;
     mat(0, 1) = var::k(0) / h;
     vec[0] = -var::mu_1;
 
     mat(n-1, n-1) = -var::k(1) / h - var::beta_2;
     mat(n-1, n-2) = var::k(1) / h;
-    vec[n-1] = -var::mu_2;
+    vec[n-1] = -var::mu_2;*/
+
+
+    // second order
+    mat(0, 0) = -var::k(0) - 2 * (var::k(h)-var::k(0)) - 2 * h*h * var::q(0) - h * var::beta_1;
+    mat(0, 1) = 2 * var::k(h) - var::k(0);
+    vec[0] = -h * var::mu_1 - 4 * h*h * var::f(0);
+
+    mat(n-1, n-1) = -var::k(1) - 2 * (var::k(1-h)-var::k(1)) - 2 * h*h * var::q(1) - h * var::beta_2;
+    mat(n-1, n-2) = 2 * var::k(1-h) - var::k(1);
+    vec[n-1] = -h * var::mu_2 - 4 * h*h * var::f(1);
 }
 
 
@@ -165,16 +174,17 @@ int test_solve(size_t n, bool print) {
         }
         std::cout << std::endl;
     }
-
-    double me = 0;
-    for (size_t i = 0; i < n; ++i) {
-        double err = std::abs(var::model_u(i * 1.0 / (n-1)) - solution[i]);
-        if (me < err) {
-            std::cerr << "{{" << i << " " << var::model_u(i / (n-1)) << " " << solution[i] << "}}\n";
-            me = err;
+    else {
+        double me = 0;
+        for (size_t i = 0; i < n; ++i) {
+            double err = std::abs(var::model_u(i * 1.0 / (n-1)) - solution[i]);
+            if (me < err) {
+                std::cerr << "{{" << i << " " << var::model_u(i / (n-1)) << " " << solution[i] << "}}\n";
+                me = err;
+            }
         }
+        std::cerr << "[error = " << me << "]" << std::endl;
     }
-    std::cerr << "[error = " << me << "]" << std::endl;
     return 0;
 }
 

@@ -1,2 +1,2 @@
 # numerical-practicum
-Some numerical forntran
+Some numerical tasks
