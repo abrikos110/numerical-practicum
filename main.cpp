@@ -58,9 +58,12 @@ namespace var {
     }
 
     double model_u(double x) {
-        double k = std::sqrt(0.4),
-            C = -2 * std::exp(-0.5) / ((1+2*k) * std::exp(k) + (1-2*k) * std::exp(-k));
-        return C * (std::exp(k * x) + std::exp(-k * x)) + 2 * std::exp(-0.5);
+        double s10 = std::sqrt(10);
+        return ((8 - 2*s10) * std::exp(s10 * x/5)
+                + (2*s10 + 8) * std::exp(s10*(x + 2)/5)
+                - 8 * std::exp(s10 * (2*x + 1)/5) - 8 * std::exp(s10/5))
+            * std::exp(-s10*x/5 - 0.5)
+            / (-s10 + 4 + (s10 + 4) * std::exp(2*s10/5));
     }
 
     double beta_1 = 0, mu_1 = 0;
@@ -83,29 +86,28 @@ void create_mat_vec(size_t n, tridiagonal_matrix &mat, std::vector<double> &vec)
     double h = 1.0 / (n-1);
 
     for (size_t i = 1; i < n-1; ++i) {
-        mat(i, i-1) = var::k(i*h);
-        mat(i, i) = -var::k(i * h) - var::k(i*h + h) - var::q(i*h) * h*h;
+        double kk = var::k(i*h);
+        if (1) {
+            double kd = (var::k(i*h + h) - var::k(i*h - h)) / (2*h);
+            mat(i, i-1) = -kd / (2*h) + kk / (h*h);
+            mat(i, i) = -2 * kk / (h*h) - var::q(i*h);
+            mat(i, i+1) = kd / (2*h) + kk / (h*h);
+            vec[i] = -var::f(i*h);
+            continue;
+        }
+        mat(i, i-1) = kk;
+        mat(i, i) = -kk - var::k(i*h + h) - var::q(i*h) * h*h;
         mat(i, i+1) = var::k(i*h + h);
-        vec[i] = -var::f(i*h) * h*h;
+        vec[i] = -var::f(i*h)*h*h;
     }
 
-    mat(0, 0) = -(var::k(0) + var::k(h)) / 2 - h * (var::beta_1 + h * var::q(0) / 2);
-    mat(0, 1) = (var::k(0) + var::k(h)) / 2;
-    mat(n-1, n-2) = (var::k(1) + var::k(1-h)) / 2;
-    mat(n-1, n-1) = -(var::k(1) + var::k(1-h)) / 2 - h * (var::beta_2 + h * var::q(1) / 2);
-    vec[0] = -h * (var::mu_1 - h * var::f(0) / 2);
-    vec[n-1] = -h * (var::mu_2 - h * var::f(1) / 2);
-    /*
-    s = !echo 99 | ./main
-    s = s[:-1]
-    m = numpy.array(eval('['+''.join(s[:-2])+']'))
-    v = numpy.array(eval('[' + s[-1] + ']'))
-    a = numpy.array(eval('[' + s[-2] + ']'))
-    xx = numpy.linspace(0, 1, len(v))
-    plt.plot(xx, v-v[0]+g([0])[0])
-    plt.plot(xx, g(xx))
-    plt.show()
-    */
+    mat(0, 0) = -var::k(0) / h - var::beta_1;
+    mat(0, 1) = var::k(0) / h;
+    vec[0] = -var::mu_1;
+
+    mat(n-1, n-1) = -var::k(1) / h - var::beta_2;
+    mat(n-1, n-2) = var::k(1) / h;
+    vec[n-1] = -var::mu_2;
 }
 
 
@@ -145,13 +147,13 @@ int test_solve(size_t n, bool print) {
     solve(mat, vec, solution);
 
     if (print) {
-        for (size_t i = 0; i < n; ++i) {
+        /*for (size_t i = 0; i < n; ++i) {
             std::cout << "[";
             for (size_t j = 0; j < n; ++j) {
                 std::cout << mat.get(i, j) << ", ";
             }
             std::cout << "],\n";
-        }
+        }*/
 
         for (size_t i = 0; i < n; ++i) {
             std::cout << vec[i] << ", ";
@@ -166,8 +168,9 @@ int test_solve(size_t n, bool print) {
 
     double me = 0;
     for (size_t i = 0; i < n; ++i) {
-        double err = std::abs(var::model_u(i / (n-1)) - solution[i]);
+        double err = std::abs(var::model_u(i * 1.0 / (n-1)) - solution[i]);
         if (me < err) {
+            std::cerr << "{{" << i << " " << var::model_u(i / (n-1)) << " " << solution[i] << "}}\n";
             me = err;
         }
     }
@@ -175,9 +178,12 @@ int test_solve(size_t n, bool print) {
     return 0;
 }
 
-int main() {
+int main(int argc, char **args) {
     std::cout.precision(16);
     size_t n;
     std::cin >> n;
-    return test_solve(n, 1);
+    if (args == nullptr) {
+        return 1;
+    }
+    return test_solve(n, argc <= 1);
 }
