@@ -163,12 +163,29 @@ int test_solve(size_t n, bool print) {
             }
             std::cout << "],\n";
         }*/
+        // print matrix
+        for (size_t i = 1; i < n; ++i) {
+            std::cout << mat.get(i-1, i) << ", ";
+        }
+        std::cout << "\n";
 
+        for (size_t i = 0; i < n; ++i) {
+            std::cout << mat.get(i, i) << ", ";
+        }
+        std::cout << "\n";
+
+        for (size_t i = 1; i < n; ++i) {
+            std::cout << mat.get(i, i-1) << ", ";
+        }
+        std::cout << "\n";
+
+        // print right side
         for (size_t i = 0; i < n; ++i) {
             std::cout << vec[i] << ", ";
         }
         std::cout << "\n";
 
+        // print solution
         for (size_t i = 0; i < n; ++i) {
             std::cout << solution[i] << ", ";
         }
