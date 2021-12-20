@@ -42,18 +42,30 @@ public:
 
 
 namespace var {
+#ifdef TEST
+    bool model = true;
+#else
+    bool model = false;
+#endif
+
     double k(double x) {
-        return 0.5*0.5 + 1;
+        if (model) {
+            return 0.5*0.5 + 1;
+        }
         return x*x + 1;
     }
 
     double q(double x) {
-        return 0.5;
+        if (model) {
+            return 0.5;
+        }
         return x;
     }
 
     double f(double x) {
-        return std::exp(-0.5);
+        if (model) {
+            return std::exp(-0.5);
+        }
         return std::exp(-x);
     }
 
@@ -144,6 +156,34 @@ void solve(tridiagonal_matrix &mat, std::vector<double> &vec,
 }
 
 
+// vn.size() * 2 should be equal to v2n.size()
+double calc_error(std::vector<double> &vn, std::vector<double> &v2n) {
+    double ans = 0;
+    for (size_t i = 0; i < vn.size(); ++i) {
+        double err = std::abs(vn[i] - v2n[2*i]);
+        ans = std::max(err, ans);
+    }
+    return ans;
+}
+
+
+void runge_rule(double eps, std::vector<double> &sol2) {
+    size_t n = 10;
+    tridiagonal_matrix mat;
+    std::vector<double> vec, solution;
+
+    create_mat_vec(n, mat, vec);
+    solve(mat, vec, sol2);
+
+    do {
+        n *= 2;
+        solution.swap(sol2);
+        create_mat_vec(n, mat, vec);
+        solve(mat, vec, sol2);
+    } while (calc_error(solution, sol2) > eps);
+}
+
+
 int test_solve(size_t n, bool print) {
     tridiagonal_matrix mat;
     std::vector<double> vec, solution;
@@ -207,10 +247,20 @@ int test_solve(size_t n, bool print) {
 
 int main(int argc, char **args) {
     std::cout.precision(16);
+#ifdef TEST
     size_t n;
     std::cin >> n;
     if (args == nullptr) {
         return 1;
     }
     return test_solve(n, argc <= 1);
+#endif
+
+    std::vector<double> ans;
+    runge_rule(var::eps, ans);
+
+    for (auto i : ans) {
+        std::cout << i << ", ";
+    }
+    std::cout << std::endl;
 }

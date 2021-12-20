@@ -10,8 +10,9 @@ c = sqrt(2/5)
 cc = 4 - sqrt(10) + (4 + sqrt(10)) * exp(2*c)
 g = lambda x: exp(-0.5) * 2 * (cc - 4 * (exp(c * (1+x)) + exp(c * (1-x)))) / cc
 
-os.system('g++ main.cpp -o main -Wall -Wextra -Wpedantic -O3 -std=c++17')
-s = sub.getoutput('echo ' + input() + ' | ./main').split('\n')
+os.system('g++ -DTEST main.cpp -o mainTEST -Wall -Wextra -Wpedantic -O3 -std=c++17')
+s = sub.getoutput('echo ' + input() + ' | ./mainTEST').split('\n')
+os.remove('mainTEST')
 
 m = [numpy.array(eval('[' + s[i] + ']')) for i in range(-5, -2)]
 v = numpy.array(eval('[' + s[-1] + ']'))
