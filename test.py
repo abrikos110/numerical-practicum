@@ -26,7 +26,8 @@ my = y * m[1]
 my[:-1] += m[0] * y[1:]
 my[1:] += m[2] * y[:-1]
 
-print('approx:', max(abs(my)))
+print('|f|:', max(abs(f)))
+print('approx:', max(abs(my - f)))
 print('error:', max(abs(y - v)))
 
 plt.plot(xx, v, label='calc')
