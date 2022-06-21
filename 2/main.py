@@ -11,7 +11,12 @@ def runge_kutta_2(x0, y0, f, h=0.01, n=100):
         k1 = h * f(x[-1], y[-1])
         k2 = h * f(x[-1] + h, y[-1] + k1)
         yi = y[-1] + (k1 + k2) / 2
+        #k1 = f(x[-1], y[-1])
+        #k2 = f(x[-1] + h/2, y[-1] + h/2 * k1)
+        #k3 = f(x[-1] + h/2, y[-1] + h/2 * k2)
+        #k4 = f(x[-1] + h, y[-1] + h * k3)
         xi = x[-1] + h
+        #yi = y[-1] + h/6 * (k1 + 2*k2 + 2*k3 + k4)
         y.append(yi)
         x.append(xi)
     return numpy.array(x), numpy.array(y)
@@ -38,8 +43,9 @@ def calc():
     x = 0
     x, y = runge_kutta_2(x, y, f, h=1/int(nh), n=X*int(nh))
     m = [0, 1]
+    gx = x #y[:, 0]
     for i in range(y.shape[1]):
-        lines[i].set_xdata(x)
+        lines[i].set_xdata(gx)
         lines[i].set_ydata(y[:, i])
         m[0] = min(m[0], y[:, i].min())
         m[1] = max(m[1], y[:, i].max())
@@ -47,7 +53,7 @@ def calc():
     m[0] -= d
     m[1] += d
     lines[0].axes.set_ylim(*m)
-    lines[0].axes.set_xlim(x.min(), x.max())
+    lines[0].axes.set_xlim(gx.min(), gx.max())
     plt.gcf().canvas.draw_idle()
 
 if __name__ == '__main__':
