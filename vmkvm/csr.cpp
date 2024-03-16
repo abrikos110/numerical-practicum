@@ -10,9 +10,13 @@ struct CSR {
         ri.clear();
         d.clear();
     }
+#define VEC_MEM_USAGE(v) (v.capacity() * sizeof(v[0]))
+    inline size_t mem_usage() {
+        return VEC_MEM_USAGE(ri) + VEC_MEM_USAGE(d);
+    }
 };
 
-void gen_test_topo(size_t Nx, size_t Ny, CSR<size_t> &ans) {
+size_t gen_test_topo(size_t Nx, size_t Ny, CSR<size_t> &ans) {
     // square grid of nodes of size Nx,Ny
     // every third quad is split into two triangles
     ans.clear();
@@ -33,13 +37,17 @@ void gen_test_topo(size_t Nx, size_t Ny, CSR<size_t> &ans) {
             }
         }
     }
+    size_t mem_usage = ans.mem_usage();
     ans.ri.shrink_to_fit();
     ans.d.shrink_to_fit();
+    return mem_usage;
 }
 
-void nodes_to_adj(size_t num_nodes, const CSR<size_t> &topo, CSR<size_t> &adj) {
+size_t nodes_to_adj(size_t num_nodes, const CSR<size_t> &topo, CSR<size_t> &adj) {
+    size_t mem_usage = 0;
     adj.clear();
     adj.ri.resize(num_nodes + 1);
+    mem_usage += adj.mem_usage();
     for (size_t i = 0; i < topo.ri.size() - 1; ++i) {
         for (size_t j = topo.ri[i]; j < topo.ri[i+1]; ++j) {
             // each node topo.d[j] has topo.ri[i+1] - topo.ri[i] - 1 neighbours
@@ -50,7 +58,7 @@ void nodes_to_adj(size_t num_nodes, const CSR<size_t> &topo, CSR<size_t> &adj) {
         adj.ri[i] += adj.ri[i-1];
     }
     adj.d.resize(adj.ri.back());
-    std::vector<size_t> indices(num_nodes);
+    std::vector<size_t> indices(1+num_nodes);
     for (size_t i = 0; i < topo.ri.size() - 1; ++i) {
         for (size_t j = topo.ri[i]; j < topo.ri[i+1]; ++j) {
             // for each node l add all neighbours to its list beginning at adj.ri[l]
@@ -62,6 +70,22 @@ void nodes_to_adj(size_t num_nodes, const CSR<size_t> &topo, CSR<size_t> &adj) {
             }
         }
     }
+    indices[0] = 0; // new row index
+    for (size_t i = 0; i < adj.ri.size() - 1; ++i) {
+        std::sort(&adj.d[adj.ri[i]], &adj.d[adj.ri[i+1]]);
+        size_t p = std::unique(&adj.d[adj.ri[i]], &adj.d[adj.ri[i+1]])
+            - &adj.d[adj.ri[i]];
+        indices[1+i] = indices[i] + p;
+    }
+    std::vector<size_t> new_d(indices[num_nodes]);
+    for (size_t i = 0; i < adj.ri.size() - 1; ++i) {
+        for (size_t j = 0; j < indices[i+1] - indices[i]; ++j) {
+            new_d[indices[i] + j] = adj.d[adj.ri[i] + j];
+        }
+    }
+    adj.ri = indices;
+    adj.d = new_d;
+    return mem_usage + adj.mem_usage();
 }
 
 template<typename datat>
@@ -76,16 +100,57 @@ void print_csr(CSR<datat> c, const std::string &name) {
     }
 }
 
+double get_time() {
+    auto c = std::chrono::high_resolution_clock();
+    auto now = c.now().time_since_epoch();
+    auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now);
+    return ns.count() / 1e9;
+}
+
+
 int main(int argc, char **args) {
-    if (argc != 3) {
-        std::cerr << "Usage: " << args[0] << " Nx Ny\n";
+    double T = get_time();
+#define MT(s) std::cerr << s << ": " << get_time() - T << "s\n"; T = get_time();
+    bool print_topo = false, print = true;
+    size_t N[2];
+    if (argc >= 3) {
+        int j = 0;
+        for (int i = 1; i < argc; ++i) {
+            if (std::string(args[i]) == "--topo") {
+                print_topo = true;
+            }
+            else if (std::string(args[i]) == "--help") {
+                goto HELP;
+            }
+            else if (std::string(args[i]) == "--no-print") {
+                print = false;
+            }
+            else if (j < 2) {
+                N[j++] = std::stoll(args[i]);
+            }
+        }
+    }
+    else {
+HELP:
+        std::cerr << "Usage: " << args[0] << " Nx Ny [--topo] [--no-print]\n";
         return 1;
     }
-    size_t Nx = std::stoll(args[1]), Ny = std::stoll(args[2]);
-    CSR<size_t> topo, adj;
-    gen_test_topo(Nx, Ny, topo);
-    nodes_to_adj(Nx * Ny, topo, adj);
+    MT("Input handling");
 
-    print_csr(topo, "topo");
-    print_csr(adj, "adj");
+    CSR<size_t> topo, adj;
+    std::cout << "Generating test topology used " << gen_test_topo(N[0], N[1], topo)
+        << " bytes of RAM\n";
+    MT("Generating test topology");
+    std::cout << "Creating adjacency used " << nodes_to_adj(N[0] * N[1], topo, adj)
+        << " bytes of RAM\n";
+    MT("Creating node adjacency from topology");
+
+    if (print) {
+        if (print_topo) {
+            print_csr(topo, "topo");
+            MT("Printing topology");
+        }
+        print_csr(adj, "adj");
+        MT("Printing adjacency");
+    }
 }
