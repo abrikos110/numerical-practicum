@@ -36,26 +36,22 @@ size_t nodes_to_adj(size_t num_nodes, const CSR<size_t> &topo, CSR<size_t> &adj)
     adj.clear();
     adj.ri.resize(num_nodes + 1);
     mem_usage += adj.mem_usage();
-    for (size_t i = 0; i < topo.ri.size() - 1; ++i) {
-        for (size_t j = topo.ri[i]; j < topo.ri[i+1]; ++j) {
-            // each node topo.d[j] has topo.ri[i+1] - topo.ri[i] - 1 neighbours
-            adj.ri[1 + topo.d[j]] += topo.ri[i+1] - topo.ri[i] - 1;
-        }
+    FOR_EACH_CSR(topo, i, j) {
+        // each node topo.d[j] has topo.ri[i+1] - topo.ri[i] - 1 neighbours
+        adj.ri[1 + topo.d[j]] += topo.ri[i+1] - topo.ri[i] - 1;
     }
     for (size_t i = 1; i < num_nodes + 1; ++i) {
         adj.ri[i] += adj.ri[i-1];
     }
     adj.d.resize(adj.ri.back());
     std::vector<size_t> indices(1+num_nodes);
-    for (size_t i = 0; i < topo.ri.size() - 1; ++i) {
-        for (size_t j = topo.ri[i]; j < topo.ri[i+1]; ++j) {
-            // for each node l add all neighbours to its list beginning at adj.ri[l]
-            size_t l = topo.d[j];
-            for (size_t k = topo.ri[i]; k < topo.ri[i+1]; ++k) {
-                if (k == j) continue;
-                adj.d[adj.ri[l] + indices[l]] = topo.d[k];
-                ++indices[l];
-            }
+    FOR_EACH_CSR(topo, i, j) {
+        // for each node l add all neighbours to its list beginning at adj.ri[l]
+        size_t l = topo.d[j];
+        for (size_t k = topo.ri[i]; k < topo.ri[i+1]; ++k) {
+            if (k == j) continue;
+            adj.d[adj.ri[l] + indices[l]] = topo.d[k];
+            ++indices[l];
         }
     }
     indices[0] = 0; // new row index
