@@ -2,19 +2,7 @@
 #include <vector>
 #include <string>
 
-template<typename data_type>
-struct CSR {
-    std::vector<size_t> ri; // row index
-    std::vector<data_type> d;
-    void clear() {
-        ri.clear();
-        d.clear();
-    }
-#define VEC_MEM_USAGE(v) (v.capacity() * sizeof(v[0]))
-    inline size_t mem_usage() {
-        return VEC_MEM_USAGE(ri) + VEC_MEM_USAGE(d);
-    }
-};
+#include "csr.h"
 
 size_t gen_test_topo(size_t Nx, size_t Ny, CSR<size_t> &ans) {
     // square grid of nodes of size Nx,Ny
@@ -86,18 +74,6 @@ size_t nodes_to_adj(size_t num_nodes, const CSR<size_t> &topo, CSR<size_t> &adj)
     adj.ri = indices;
     adj.d = new_d;
     return mem_usage + adj.mem_usage();
-}
-
-template<typename datat>
-void print_csr(CSR<datat> c, const std::string &name) {
-    std::cout << "CSR " << name << ":\n";
-    for (size_t i = 0; i < c.ri.size() - 1; ++i) {
-        std::cout << "    ";
-        for (size_t j = c.ri[i]; j < c.ri[i+1]; ++j) {
-            std::cout << c.d[j] << " ";
-        }
-        std::cout << "\n";
-    }
 }
 
 double get_time() {
