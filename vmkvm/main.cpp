@@ -81,8 +81,8 @@ double get_time() {
 
 
 int main(int argc, char **args) {
-    double T = get_time();
-#define MT(s) std::cerr << s << ": " << get_time() - T << "s\n"; T = get_time();
+    double T = get_time(), T2;
+#define MT(s) T2 = get_time(); std::cerr << s << ": " << T2-T << "s\n"; T = get_time();
     bool print_topo = false, print = true;
     size_t N[2];
     if (argc >= 3) {
