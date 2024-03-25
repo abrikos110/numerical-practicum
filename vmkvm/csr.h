@@ -18,16 +18,17 @@ struct CSR {
     }
 };
 
-#define FOR_EACH_CSR(csr, i, k) for (size_t i = 0; i < csr.ri.size() - 1; ++i) for (size_t k = csr.ri[i]; k < csr.ri[i+1]; ++k)
+#define FOR_CSR_BEGIN(csr, i, k, j) for (size_t i = 0; i < csr.ri.size() - 1; ++i) for (size_t k = csr.ri[i]; k < csr.ri[i+1]; ++k) { size_t j = csr.d[k];
+#define FOR_CSR_END }
 
 template<typename datat>
 void print_csr(CSR<datat> c, const std::string &name) {
     std::cout << "CSR " << name << ":\n";
-    FOR_EACH_CSR(c, i, j) {
-        if (j == c.ri[i]) std::cout << "    ";
-        std::cout << c.d[j] << " ";
-        if (j+1 == c.ri[i+1]) std::cout << "\n";
-    }
+    FOR_CSR_BEGIN(c, i, k, j)
+        if (k == c.ri[i]) std::cout << "    ";
+        std::cout << j << " ";
+        if (k+1 == c.ri[i+1]) std::cout << "\n";
+    FOR_CSR_END
 }
 
 #endif
