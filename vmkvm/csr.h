@@ -7,12 +7,27 @@
 template<typename data_type>
 struct CSR {
     std::vector<size_t> ri; // row index
-    std::vector<data_type> d;
+    std::vector<size_t> d;
+    std::vector<data_type> a;
+    void clear() {
+        ri.clear();
+        d.clear();
+        a.clear();
+    }
+#define VEC_MEM_USAGE(v) (v.capacity() * sizeof(v[0]))
+    inline size_t mem_usage() {
+        return VEC_MEM_USAGE(ri) + VEC_MEM_USAGE(d) + VEC_MEM_USAGE(a);
+    }
+};
+
+template<>
+struct CSR<void> {
+    std::vector<size_t> ri; // row index
+    std::vector<size_t> d;
     void clear() {
         ri.clear();
         d.clear();
     }
-#define VEC_MEM_USAGE(v) (v.capacity() * sizeof(v[0]))
     inline size_t mem_usage() {
         return VEC_MEM_USAGE(ri) + VEC_MEM_USAGE(d);
     }
@@ -23,6 +38,15 @@ struct CSR {
 
 template<typename datat>
 void print_csr(CSR<datat> c, const std::string &name) {
+    std::cout << "CSR " << name << ":\n";
+    FOR_CSR_BEGIN(c, i, k, j)
+        if (k == c.ri[i]) std::cout << "    ";
+        std::cout << j << ',' << c.a[k] << " ";
+        if (k+1 == c.ri[i+1]) std::cout << "\n";
+    FOR_CSR_END
+}
+template<>
+void print_csr(CSR<void> c, const std::string &name) {
     std::cout << "CSR " << name << ":\n";
     FOR_CSR_BEGIN(c, i, k, j)
         if (k == c.ri[i]) std::cout << "    ";

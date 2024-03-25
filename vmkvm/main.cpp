@@ -6,7 +6,7 @@
 
 #include "csr.h"
 
-size_t gen_test_topo(size_t Nx, size_t Ny, CSR<size_t> &ans) {
+size_t gen_test_topo(size_t Nx, size_t Ny, CSR<void> &ans) {
     // square grid of nodes of size Nx,Ny
     // every third quad is split into two triangles
     ans.clear();
@@ -40,7 +40,7 @@ void prefix_sum(T *begin, T *end) {
     }
 }
 
-size_t unique_rows(CSR<size_t> &c) {
+size_t unique_rows(CSR<void> &c) {
     std::vector<size_t> I(c.ri.size());
     for (size_t i = 0; i < c.ri.size() - 1; ++i) {
         std::sort(&c.d[c.ri[i]], &c.d[c.ri[i+1]]);
@@ -58,7 +58,7 @@ size_t unique_rows(CSR<size_t> &c) {
     return c.mem_usage();
 }
 
-size_t nodes_to_adj(size_t nodes, const CSR<size_t> &topo, CSR<size_t> &adj) {
+size_t nodes_to_adj(size_t nodes, const CSR<void> &topo, CSR<void> &adj) {
     size_t mem_usage = 0;
     adj.clear();
     adj.ri.resize(nodes + 1);
@@ -82,7 +82,7 @@ size_t nodes_to_adj(size_t nodes, const CSR<size_t> &topo, CSR<size_t> &adj) {
     return mem_usage + unique_rows(adj);
 }
 
-size_t transpose_csr(size_t nodes, const CSR<size_t> &C, CSR<size_t> &T) {
+size_t transpose_csr(size_t nodes, const CSR<void> &C, CSR<void> &T) {
     T.clear();
     T.ri.resize(1 + nodes);
 
@@ -102,7 +102,7 @@ size_t transpose_csr(size_t nodes, const CSR<size_t> &C, CSR<size_t> &T) {
     return VEC_MEM_USAGE(I) + T.mem_usage();
 }
 
-bool has_edge(size_t a, size_t b, size_t el, const CSR<size_t> &en) {
+bool has_edge(size_t a, size_t b, size_t el, const CSR<void> &en) {
     if (a > b) {
         std::swap(a, b);
     }
@@ -116,8 +116,8 @@ bool has_edge(size_t a, size_t b, size_t el, const CSR<size_t> &en) {
     return false;
 }
 
-size_t en_to_eEe(size_t nodes, const CSR<size_t> &en, CSR<size_t> &eEe) {
-    CSR<size_t> T;
+size_t en_to_eEe(size_t nodes, const CSR<void> &en, CSR<void> &eEe) {
+    CSR<void> T;
     size_t MU = transpose_csr(nodes, en, T);
     eEe.clear();
     eEe.ri.resize(en.ri.size());
@@ -140,7 +140,7 @@ size_t en_to_eEe(size_t nodes, const CSR<size_t> &en, CSR<size_t> &eEe) {
         size_t nj = en.d[k+1 < en.ri[i+1] ? k+1 : en.ri[i]];
         for (size_t ek = T.ri[j]; ek < T.ri[j+1]; ++ek) {
             size_t e = T.d[ek];
-            if (has_edge(j, nj, e, en)) {
+            if (e == i || has_edge(j, nj, e, en)) {
                 eEe.d[eEe.ri[e] + I[e]++] = i;
             }
         }
@@ -151,11 +151,39 @@ size_t en_to_eEe(size_t nodes, const CSR<size_t> &en, CSR<size_t> &eEe) {
     return MU + VEC_MEM_USAGE(I) + eEe.mem_usage();
 }
 
+size_t get_sample_matrix(const CSR<void> &adj, CSR<float> &mat) {
+    mat.clear();
+    mat.ri = adj.ri;
+    mat.d = adj.d;
+    mat.a.resize(mat.d.size());
+    float sum = 1e300;
+    size_t kdiag = SIZE_MAX / 2;
+    FOR_CSR_BEGIN(mat, i, k, j)
+        if (k == mat.ri[i]) sum = 0;
+        if (i == j) kdiag = k;
+        else sum += std::abs(mat.a[k] = std::cos(i*j + i + j));
+        if (k+1 == mat.ri[i+1]) mat.a[kdiag] = sum * 1.3;
+    FOR_CSR_END
+    return mat.mem_usage();
+}
+void get_sample_rhs(std::vector<float> &v) {
+    for (size_t i = 0; i < v.size(); ++i) {
+        v[i] = std::sin(i);
+    }
+}
+
 double get_time() {
     auto c = std::chrono::high_resolution_clock();
     auto now = c.now().time_since_epoch();
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now);
     return ns.count() / 1e9;
+}
+
+void axpby(float a, std::vector<float> &x, float b, std::vector<float> &y) {
+    assert(x.size() == y.size());
+    for (size_t i = 0; i < x.size(); ++i) {
+        x[i] = a * x[i] + b * y[i];
+    }
 }
 
 
@@ -189,7 +217,8 @@ HELP:
     MT("Input handling");
 
     size_t nodes = N[0] * N[1];
-    CSR<size_t> topo, nen, eEe;
+    CSR<void> topo, nen, eEe;
+    CSR<float> mat;
 
     std::cout << "Generating test topology used " << gen_test_topo(N[0], N[1], topo)
         << " bytes of RAM\n";
@@ -201,11 +230,21 @@ HELP:
 
     std::cout << "Creating eEe adjacency used " << en_to_eEe(nodes, topo, eEe)
         << " bytes of RAM\n";
-    MT("Creating node adjacency from topology");
+    MT("Creating element adjacency from topology");
+
+    std::cout << "Creating sample matrix used " << get_sample_matrix(eEe, mat)
+        << " bytes of RAM\n";
+    MT("Creating matrix");
+
+    std::vector<float> rhs(mat.ri.size() - 1);
+
+    get_sample_rhs(rhs);
+    std::cout << "Generating sample rhs used " << VEC_MEM_USAGE(rhs) << " bytes\n";
+    MT("RHS took");
 
     if (print) {
         if (print_topo) {
-            CSR<size_t> tt;
+            CSR<void> tt;
             transpose_csr(N[0] * N[1], topo, tt);
             print_csr(topo, "topo");
             print_csr(tt, "transposed topo");
@@ -213,6 +252,7 @@ HELP:
         }
         print_csr(nen, "nen");
         print_csr(eEe, "eEe");
+        print_csr(mat, "eEe mat");
         MT("Printing adjacency");
     }
 }
