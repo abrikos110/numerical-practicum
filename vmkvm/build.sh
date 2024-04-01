@@ -1,1 +1,1 @@
-g++ -Wall -Wextra -Wpedantic main.cpp
+g++ -g -Wall -Wextra -Wpedantic -fopenmp main.cpp

@@ -4,6 +4,8 @@
 
 #include <cassert>
 
+#include <omp.h>
+
 #include "csr.h"
 
 size_t gen_test_topo(size_t Nx, size_t Ny, CSR<void> &ans) {
@@ -45,9 +47,12 @@ size_t unique_rows(CSR<void> &c) {
     for (size_t i = 0; i < c.ri.size() - 1; ++i) {
         std::sort(&c.d[c.ri[i]], &c.d[c.ri[i+1]]);
         size_t p = std::unique(&c.d[c.ri[i]], &c.d[c.ri[i+1]]) - &c.d[c.ri[i]];
-        I[1+i] = I[i] + p;
+        I[1+i] = I[i] + p; // waat if i remove 'I[i] +', it crashes
     }
+    //prefix_sum(&I[0], &I[I.size() - 1]);
     std::vector<size_t> d(I.back());
+    #pragma omp barrier
+    #pragma omp parallel for
     for (size_t i = 0; i < c.ri.size() - 1; ++i) {
         for (size_t j = 0; j < I[i+1] - I[i]; ++j) {
             d[I[i] + j] = c.d[c.ri[i] + j];
@@ -162,11 +167,12 @@ size_t get_sample_matrix(const CSR<void> &adj, CSR<float> &mat) {
         if (k == mat.ri[i]) sum = 0;
         if (i == j) kdiag = k;
         else sum += std::abs(mat.a[k] = std::cos(i*j + i + j));
-        if (k+1 == mat.ri[i+1]) mat.a[kdiag] = sum * 1.3;
+        if (k+1 == mat.ri[i+1]) mat.a[kdiag] = sum * 1.9;
     FOR_CSR_END
     return mat.mem_usage();
 }
 void get_sample_rhs(std::vector<float> &v) {
+    #pragma omp parallel for
     for (size_t i = 0; i < v.size(); ++i) {
         v[i] = std::sin(i);
     }
@@ -179,10 +185,59 @@ double get_time() {
     return ns.count() / 1e9;
 }
 
-void axpby(float a, std::vector<float> &x, float b, std::vector<float> &y) {
+template<typename f>
+void axpby(f a, std::vector<f> &x, f b, const std::vector<f> &y) {
     assert(x.size() == y.size());
+    #pragma omp parallel for
     for (size_t i = 0; i < x.size(); ++i) {
         x[i] = a * x[i] + b * y[i];
+    }
+}
+
+template<typename f>
+f dot(const std::vector<f> &a, const std::vector<f> &b) {
+    assert(a.size() == b.size());
+    f sum = 0;
+    #pragma omp parallel for reduction(+:sum)
+    for (size_t i = 0; i < a.size(); ++i) {
+        sum += a[i] * b[i];
+    }
+    return sum;
+}
+
+template<typename f>
+void spmv(const CSR<f> &m, const std::vector<f> &a, std::vector<f> &b) {
+    #pragma omp parallel for
+    FOR_CSR_BEGIN(m, i, k, j)
+        b[i] += m.a[k] * a[j];
+    FOR_CSR_END
+}
+
+template<typename f>
+void fill(f c, std::vector<f> &v) {
+    #pragma omp parallel for
+    for (size_t i = 0; i < v.size(); ++i) v[i] = c;
+}
+
+template<typename f>
+void CG(const CSR<f> &m, const std::vector<f> &b, std::vector<f> &x, int n) {
+    using vecf = std::vector<f>;
+    assert(x.size() == b.size());
+    vecf r = b, z(b.size()), q(b.size()), p(b.size());
+    f rho = 0;
+    for (int i = 0; i < n; ++i) {
+        f rho_2 = dot(r, r);
+        if (i == 0) p = r;
+        else {
+            f bet = rho_2 / rho;
+            axpby(bet, p, (f)1., r);
+        }
+        fill((f)0, q);
+        spmv(m, p, q);
+        rho = rho_2;
+        f alp = rho / dot(p, q);
+        axpby((f)1., x, alp, p);
+        axpby((f)1., r, -alp, q);
     }
 }
 
@@ -192,6 +247,8 @@ int main(int argc, char **args) {
 #define MT(s) T2 = get_time(); std::cerr << s << ": " << T2-T << "s\n"; T = get_time();
     bool print_topo = false, print = true;
     size_t N[2];
+    long ntr = 1;
+    long its = 10;
     if (argc >= 3) {
         int j = 0;
         for (int i = 1; i < argc; ++i) {
@@ -206,6 +263,15 @@ int main(int argc, char **args) {
             }
             else if (j < 2) {
                 N[j++] = std::stoll(args[i]);
+            }
+            else if (std::string(args[i]) == "--omp-ntr") {
+                assert(i < argc - 1);
+                ntr = std::stol(args[i+1]);
+                omp_set_num_threads(ntr);
+            }
+            else if (std::string(args[i]) == "--its") {
+                assert(i < argc - 1);
+                its = std::stol(args[i+1]);
             }
         }
     }
@@ -236,11 +302,26 @@ HELP:
         << " bytes of RAM\n";
     MT("Creating matrix");
 
-    std::vector<float> rhs(mat.ri.size() - 1);
+    std::vector<float> rhs(mat.ri.size() - 1),
+        x(mat.ri.size() - 1), r(mat.ri.size() - 1, 0);
 
     get_sample_rhs(rhs);
     std::cout << "Generating sample rhs used " << VEC_MEM_USAGE(rhs) << " bytes\n";
     MT("RHS took");
+
+    spmv(mat, x, r);
+    axpby(1.f, r, -1.f, rhs);
+    std::cout << "\033[31mResidual\033[0m: " << dot(r, r) << "\n";
+    r.clear(); r.resize(x.size());
+    MT("sth");
+    CG(mat, rhs, x, its);
+    MT("solving.");
+    spmv(mat, x, r);
+    axpby(1.f, r, -1.f, rhs);
+    MT("Calc residual");
+    std::cout << "\033[31mResidual\033[0m: " << dot(r, r) << "\n";
+    MT("Dot&print residual");
+
 
     if (print) {
         if (print_topo) {
