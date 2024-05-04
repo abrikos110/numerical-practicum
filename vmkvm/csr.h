@@ -2,6 +2,7 @@
 #define CSR_HEADER
 
 #include <vector>
+#include <iostream>
 
 
 template<typename data_type>

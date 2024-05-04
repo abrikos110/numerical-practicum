@@ -1,1 +1,1 @@
-mpic++ -g -Wall -Wextra -Wpedantic -fopenmp mpi_main.cpp
+mpic++ -g -Wall -Wextra -Wpedantic -DOMPI_SKIP_MPICXX -fopenmp main_mpi.cpp

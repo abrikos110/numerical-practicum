@@ -244,14 +244,7 @@ void CG(const CSR<f> &m, const std::vector<f> &b, std::vector<f> &x, int n) {
     }
 }
 
-
-int main(int argc, char **args) {
-    double T = get_time(), T2;
-#define MT(s) T2 = get_time(); std::cerr << s << ": " << T2-T << "s\n"; T = get_time();
-    bool print_topo = false, print = true;
-    size_t N[2];
-    long ntr = 1;
-    long its = 10;
+int handle_args(int argc, char **args, bool &print_topo, bool &print, size_t N[2], long &ntr, long &its) {
     if (argc >= 3) {
         int j = 0;
         for (int i = 1; i < argc; ++i) {
@@ -283,6 +276,17 @@ HELP:
         std::cerr << "Usage: " << args[0] << " Nx Ny [--topo] [--no-print]\n";
         return 1;
     }
+    return 0;
+}
+
+
+int main(int argc, char **args) {
+    double T = get_time(), T2;
+#define MT(s) T2 = get_time(); std::cerr << s << ": " << T2-T << "s\n"; T = get_time();
+    bool print_topo = false, print = true;
+    size_t N[2];
+    long ntr = 1, its = 10;
+    if (handle_args(argc, args, print_topo, print, N, ntr, its)) return 1;
     MT("Input handling");
 
     size_t nodes = N[0] * N[1];
