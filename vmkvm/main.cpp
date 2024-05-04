@@ -1,8 +1,11 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <chrono>
 
 #include <cassert>
+#include <cmath>
 
 #include <omp.h>
 
@@ -313,7 +316,7 @@ HELP:
     axpby(1.f, r, -1.f, rhs);
     std::cout << "\033[31mResidual\033[0m: " << dot(r, r) << "\n";
     r.clear(); r.resize(x.size());
-    MT("sth");
+    MT("res");
     CG(mat, rhs, x, its);
     MT("solving.");
     spmv(mat, x, r);
