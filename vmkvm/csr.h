@@ -2,8 +2,8 @@
 #define CSR_HEADER
 
 #include <vector>
+#include <algorithm>
 #include <iostream>
-
 
 template<typename data_type>
 struct CSR {
@@ -54,6 +54,63 @@ void print_csr(CSR<void> c, const std::string &name) {
         std::cout << j << " ";
         if (k+1 == c.ri[i+1]) std::cout << "\n";
     FOR_CSR_END
+}
+
+template<typename T>
+void prefix_sum(T begin, T end) {
+    auto prev = *begin;
+    ++begin; // begin = a+1
+    // here prev = prefix sum of a in range [0, 1)
+    //      begin = a + 1
+    while (begin < end) {
+        // here begin = a+i
+        //      prev = prefix sum of a in range [0, i)
+        *begin += prev; // we add a[i] to prev and store in a[i]
+        prev = *begin;  // make prev = prefix sum of a in range [0, i+1)
+        ++begin; // begin = a + i+1
+    }
+}
+
+size_t transpose_csr(size_t nodes, const CSR<void> &C, CSR<void> &T) {
+    T.clear();
+    T.ri.resize(1 + nodes);
+
+    FOR_CSR_BEGIN(C, i, k, j)
+        ++T.ri[1 + j];
+    FOR_CSR_END
+
+    prefix_sum(T.ri.begin(), T.ri.end());
+    std::vector<size_t> I(nodes, 0);
+    T.d.resize(T.ri.back());
+
+    FOR_CSR_BEGIN(C, i, k, j)
+        T.d[T.ri[j] + I[j]++] = i;
+        assert(I[j] <= T.ri[1+j] - T.ri[j]);
+    FOR_CSR_END
+
+    return VEC_MEM_USAGE(I) + T.mem_usage();
+}
+
+size_t unique_rows(CSR<void> &c) {
+    std::vector<size_t> I(c.ri.size());
+    for (size_t i = 0; i < c.ri.size() - 1; ++i) {
+        std::sort(&c.d[c.ri[i]], &c.d[c.ri[i+1]]);
+        size_t p = std::unique(&c.d[c.ri[i]], &c.d[c.ri[i+1]]) - &c.d[c.ri[i]];
+        I[i+1] = p;
+    }
+    I[0] = 0;
+    prefix_sum(I.begin(), I.end());
+
+    std::vector<size_t> d(I.back());
+    #pragma omp parallel for
+    for (size_t i = 0; i < c.ri.size() - 1; ++i) {
+        for (size_t j = 0; j < I[i+1] - I[i]; ++j) {
+            d[I[i] + j] = c.d[c.ri[i] + j];
+        }
+    }
+    c.ri = I;
+    c.d = d;
+    return c.mem_usage();
 }
 
 #endif

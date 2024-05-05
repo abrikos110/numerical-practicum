@@ -1,15 +1,17 @@
+#include <cassert>
+
 #include <iostream>
 #include <vector>
 #include <string>
 #include <algorithm>
 #include <chrono>
 
-#include <cassert>
 #include <cmath>
 
 #include <omp.h>
 
 #include "csr.h"
+#include "adj.h"
 
 size_t gen_test_topo(size_t Nx, size_t Ny, CSR<void> &ans) {
     // square grid of nodes of size Nx,Ny
@@ -36,127 +38,6 @@ size_t gen_test_topo(size_t Nx, size_t Ny, CSR<void> &ans) {
     ans.ri.shrink_to_fit();
     ans.d.shrink_to_fit();
     return mem_usage;
-}
-
-template<typename T>
-void prefix_sum(T *begin, T *end) {
-    for (T *i = begin + 1; i < end; ++i) {
-        i[0] += i[-1];
-    }
-}
-
-size_t unique_rows(CSR<void> &c) {
-    std::vector<size_t> I(c.ri.size());
-    for (size_t i = 0; i < c.ri.size() - 1; ++i) {
-        std::sort(&c.d[c.ri[i]], &c.d[c.ri[i+1]]);
-        size_t p = std::unique(&c.d[c.ri[i]], &c.d[c.ri[i+1]]) - &c.d[c.ri[i]];
-        I[1+i] = I[i] + p; // waat if i remove 'I[i] +', it crashes
-    }
-    //prefix_sum(&I[0], &I[I.size() - 1]);
-    std::vector<size_t> d(I.back());
-    #pragma omp barrier
-    #pragma omp parallel for
-    for (size_t i = 0; i < c.ri.size() - 1; ++i) {
-        for (size_t j = 0; j < I[i+1] - I[i]; ++j) {
-            d[I[i] + j] = c.d[c.ri[i] + j];
-        }
-    }
-    c.ri = I;
-    c.d = d;
-    return c.mem_usage();
-}
-
-size_t nodes_to_adj(size_t nodes, const CSR<void> &topo, CSR<void> &adj) {
-    size_t mem_usage = 0;
-    adj.clear();
-    adj.ri.resize(nodes + 1);
-    mem_usage += adj.mem_usage();
-    FOR_CSR_BEGIN(topo, i, k, j)
-        // each node topo.d[j] has topo.ri[i+1] - topo.ri[i] - 1 neighbours
-        adj.ri[1 + j] += topo.ri[i+1] - topo.ri[i] - 1;
-    FOR_CSR_END
-    for (size_t i = 1; i < nodes + 1; ++i) {
-        adj.ri[i] += adj.ri[i-1];
-    }
-    adj.d.resize(adj.ri.back());
-    std::vector<size_t> indices(1+nodes);
-    FOR_CSR_BEGIN(topo, i, j, l)
-        // for each node l add all neighbours to its list beginning at adj.ri[l]
-        for (size_t k = topo.ri[i]; k < topo.ri[i+1]; ++k) {
-            if (k == j) continue;
-            adj.d[adj.ri[l] + indices[l]++] = topo.d[k];
-        }
-    FOR_CSR_END
-    return mem_usage + unique_rows(adj);
-}
-
-size_t transpose_csr(size_t nodes, const CSR<void> &C, CSR<void> &T) {
-    T.clear();
-    T.ri.resize(1 + nodes);
-
-    FOR_CSR_BEGIN(C, i, k, j)
-        ++T.ri[1 + j];
-    FOR_CSR_END
-
-    prefix_sum(&*T.ri.begin(), &*T.ri.end());
-    std::vector<size_t> I(nodes, 0);
-    T.d.resize(T.ri.back());
-
-    FOR_CSR_BEGIN(C, i, k, j)
-        T.d[T.ri[j] + I[j]++] = i;
-        assert(I[j] <= T.ri[1+j] - T.ri[j]);
-    FOR_CSR_END
-
-    return VEC_MEM_USAGE(I) + T.mem_usage();
-}
-
-bool has_edge(size_t a, size_t b, size_t el, const CSR<void> &en) {
-    if (a > b) {
-        std::swap(a, b);
-    }
-    for (size_t k = en.ri[el]; k < en.ri[el+1]; ++k) {
-        size_t j = en.d[k], nj = en.d[k+1 < en.ri[el+1] ? k+1 : en.ri[el]];
-        if (j > nj) {
-            if (a == nj && b == j) return true;
-        }
-        else if (a == j && b == nj) return true;
-    }
-    return false;
-}
-
-size_t en_to_eEe(size_t nodes, const CSR<void> &en, CSR<void> &eEe) {
-    CSR<void> T;
-    size_t MU = transpose_csr(nodes, en, T);
-    eEe.clear();
-    eEe.ri.resize(en.ri.size());
-
-    FOR_CSR_BEGIN(en, i, k, j)
-        size_t nj = en.d[k+1 < en.ri[i+1] ? k+1 : en.ri[i]];
-        for (size_t ek = T.ri[j]; ek < T.ri[j+1]; ++ek) {
-            size_t e = T.d[ek];
-            if (has_edge(j, nj, e, en)) {
-                ++eEe.ri[1 + e];
-            }
-        }
-    FOR_CSR_END
-
-    prefix_sum(&*eEe.ri.begin(), &*eEe.ri.end());
-
-    std::vector<size_t> I(en.ri.size() - 1);
-    eEe.d.resize(eEe.ri.back());
-    FOR_CSR_BEGIN(en, i, k, j)
-        size_t nj = en.d[k+1 < en.ri[i+1] ? k+1 : en.ri[i]];
-        for (size_t ek = T.ri[j]; ek < T.ri[j+1]; ++ek) {
-            size_t e = T.d[ek];
-            if (e == i || has_edge(j, nj, e, en)) {
-                eEe.d[eEe.ri[e] + I[e]++] = i;
-            }
-        }
-    FOR_CSR_END
-
-    unique_rows(eEe);
-
-    return MU + VEC_MEM_USAGE(I) + eEe.mem_usage();
 }
 
 size_t get_sample_matrix(const CSR<void> &adj, CSR<float> &mat) {
