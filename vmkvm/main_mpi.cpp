@@ -76,7 +76,7 @@ inline size_t ibeg(size_t i, size_t n, size_t p) {
     // ibeg(p) == n, ibeg(0) = 0
 }
 
-size_t gen_test_topo(size_t Nx, size_t Ny, size_t px, size_t py, size_t Px, size_t Py, CSR<void> &ans) {
+size_t gen_test_topo(size_t Nx, size_t Ny, size_t px, size_t py, size_t Px, size_t Py, CSR<void> &ans, std::vector<size_t> &l2g) {
     // square grid of nodes of size Nx,Ny (grid of elements of size (Nx-1)(Ny-1))
     // every third quad is split into two triangles
     assert(Px < Nx && Py < Ny && px < Px && py < Py);
@@ -88,6 +88,8 @@ size_t gen_test_topo(size_t Nx, size_t Ny, size_t px, size_t py, size_t Px, size
     if (ybeg > 0) --ybeg;
     if (yend < Ny-1) ++yend; // increments and decrements to capture interface elements
 #endif
+    l2g.clear();
+    //l2g.reserve((xend - xbeg) * (yend - ybeg));
     ans.clear();
     ans.ri.push_back(0);
     for (size_t x = xbeg; x < xend; ++x) {
@@ -152,8 +154,9 @@ int main(int argc, char **args) {
 
     CSR<void> topo, nen, eEe;
     CSR<float> mat;
+    std::vector<size_t> l2g;
 
-    std::cout << "Generating test topology used " << gen_test_topo(Nx, Ny, px, py, Px, Py, topo)
+    std::cout << "Generating test topology used " << gen_test_topo(Nx, Ny, px, py, Px, Py, topo, l2g)
         << " bytes of RAM\n";
     MT("Generating test topology");
 
@@ -170,6 +173,7 @@ int main(int argc, char **args) {
         }
     }
     printf("\n- %d %d\n", world_size, my_rank);*/
+ //TODO : finish l2g
 
     for (int i = 0; i < world_size; ++i) {
         SUCCESS(MPI_Barrier(MPI_COMM_WORLD));
