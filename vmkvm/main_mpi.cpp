@@ -38,7 +38,6 @@ struct cli_params {
             for (int i = 1; i < argc; ++i) {
                 std::string s(args[i]);
                 if (s == "--help") goto HELP;
-                else if (j * sizeof(*N) < sizeof(N)) N[j++] = std::stoll(args[i]);
                 else if (s == "--topo") print_topo = true;
                 else if (s == "--no-print") print = false;
                 else if (s == "--omp-ntr") {
@@ -49,6 +48,7 @@ struct cli_params {
                     assert(i < argc - 1);
                     its = std::stol(args[i+1]);
                 }
+                else if (j * sizeof(*N) < sizeof(N)) N[j++] = std::stoll(args[i]);
             }
         }
         else {
